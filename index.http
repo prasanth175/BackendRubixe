@@ -1,0 +1,9 @@
+POST http://localhost:3005/register/
+Content-Type: application/json
+
+{
+  "name": "prasanth",
+  "email": "justin@gmail.com",
+  "mobile": "1234567890",
+  "gender": "Male"
+}
