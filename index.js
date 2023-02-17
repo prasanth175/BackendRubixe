@@ -47,10 +47,17 @@ const initializeDBAndServer = async () => {
   
       const dbRes = await db.run(createOne);
       res.status(200);
-      res.send("User created successfully");
+      res.send(dbRes);
     } else {
       res.status(400);
       res.send("User already exists with the given Email ID");
     }
   });
   
+  app.get('/', async (req, res) => {
+    const showData = `
+    SELECT * FROM user
+    `
+    const dbResult = await db.all(showData);
+    res.send(dbResult)
+  })
