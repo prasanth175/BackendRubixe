@@ -69,3 +69,8 @@ Content-Type: application/json
   "selling_price": "100",
   "language": "English"
 }
+
+
+###
+
+GET http://localhost:3006/userDetails
