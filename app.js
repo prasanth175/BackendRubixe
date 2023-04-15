@@ -26,8 +26,8 @@ const initializeDBAndServer = async () => {
       driver: sqlite3.Database,
     });
 
-    app.listen(80, () => {
-      console.log("Server Running at http://localhost:80/");
+    app.listen(3006, () => {
+      console.log("Server Running at http://localhost:3006/");
     });
   } catch (e) {
     console.log(`DB Error: ${e.message}`);
@@ -348,6 +348,7 @@ app.post('/generate-otp', async (req, res) => {
   const delDetails = `delete from otpDetails where email='${email}'`
   const resp = await db.run(delDetails)
   const otp = Math.floor(100000 + Math.random() * 900000); // generate 6-digit OTP
+  console.log(otp)
   const InsertData = `INSERT INTO otpDetails (email, otp) VALUES (
     '${email}',
     ${otp}
