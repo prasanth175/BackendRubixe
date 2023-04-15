@@ -37,6 +37,9 @@ const initializeDBAndServer = async () => {
 
 initializeDBAndServer();
 
+app.use('/', async (req, res) => {
+  res.send('welcome to server home page')
+})
 
 const authProfile = (req, res, next) => {
   let jwtToken;
