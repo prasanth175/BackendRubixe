@@ -7,7 +7,6 @@ const path = require("path");
 const cors = require('cors')
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const Table = require('cli-table');
 const { open } = require("sqlite");
 const sqlite3 = require("sqlite3");
 const app = express();
