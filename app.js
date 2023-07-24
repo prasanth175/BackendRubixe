@@ -36,10 +36,6 @@ const initializeDBAndServer = async () => {
 
 initializeDBAndServer();
 
-app.use('/', async (req, res) => {
-  res.send('welcome to server home page')
-})
-
 const authProfile = (req, res, next) => {
   let jwtToken;
   const authToken = req.headers["authorization"];
@@ -365,7 +361,7 @@ app.post('/generate-otp', async (req, res) => {
       service: 'gmail',
       auth: {
         user: '1022prasanthkumar@gmail.com',
-        pass: 'uwwi sogs whpa kgxm'
+        pass: 'lroizenmaulvyeko'
       }
     });
     const mailOptions = {
@@ -377,6 +373,7 @@ app.post('/generate-otp', async (req, res) => {
     };
     transporter.sendMail(mailOptions, (error, info) => {
       if (error) {
+        // console.log(error)
         return res.status(500).json({ message: 'Internal server error' });
       }
       // console.log('OTP sent: ' + info.response);
