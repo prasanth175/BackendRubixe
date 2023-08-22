@@ -1,4 +1,5 @@
 const express = require("express");
+const util = require('util');
 const process = require('process');
 const fetch = require('node-fetch');
 const Razorpay = require("razorpay");
@@ -7,34 +8,42 @@ const path = require("path");
 const cors = require('cors')
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const { open } = require("sqlite");
+// const { open } = require("sqlite");
+const multer = require("multer");
 const sqlite3 = require("sqlite3");
+const db = require("./database/index")
 const app = express();
 app.use(express.json());
 app.use(cors())
 module.exports = app;
 
-const dbPath = path.join(__dirname, "userData.db");
+// const dbPath = path.join(__dirname, "userData.db");
 
-let db = null;
+// let db = null;
+const PORT = process.env.PORT || 3006
 
-const initializeDBAndServer = async () => {
-  try {
-    db = await open({
-      filename: dbPath,
-      driver: sqlite3.Database,
-    });
+app.listen(PORT, () => {
+  console.log(`Server is running on ${PORT}...`)
+})
 
-    app.listen(3006, () => {
-      console.log("Server Running at http://localhost:3006/");
-    });
-  } catch (e) {
-    console.log(`DB Error: ${e.message}`);
-    process.exit(1);
-  }
-};
 
-initializeDBAndServer();
+// const initializeDBAndServer = async () => {
+//   try {
+//     db = await open({
+//       filename: dbPath,
+//       driver: sqlite3.Database,
+//     });
+
+//     app.listen(3006, () => {
+//       console.log("Server Running at http://localhost:3006/");
+//     });
+//   } catch (e) {
+//     console.log(`DB Error: ${e.message}`);
+//     process.exit(1);
+//   }
+// };
+
+// initializeDBAndServer();
 
 const authProfile = (req, res, next) => {
   let jwtToken;
@@ -47,6 +56,7 @@ const authProfile = (req, res, next) => {
     res.status(401);
     res.send("Invalid JWT Token");
   } else {
+    // console.log(jwtToken)
     const isToken = jwt.verify(
       jwtToken,
       "PRASHANTH_KEY",
@@ -66,18 +76,12 @@ const authProfile = (req, res, next) => {
 app.post("/register/", async (request, response) => {
   const { username, password, email } = request.body;
   const hashedPassword = await bcrypt.hash(password, 10);
-  const selectEmailQuery = `SELECT * FROM user WHERE email = '${email}'`;
-  const dbEmail = await db.get(selectEmailQuery);
-  if (dbEmail === undefined) {
-    const selectUserQuery = `SELECT * FROM user WHERE username = '${username}'`;
-    const dbUser = await db.get(selectUserQuery);
-    if(dbUser === undefined){
-      const createUserQuery = `
-      INSERT INTO 
-        user (username, email, password) 
-      VALUES ( '${username}','${email}', '${hashedPassword}')`
-    const dbResponse = await db.run(createUserQuery);
-    const newUserId = dbResponse.lastID;
+  const [rows,fields] = await db.query('SELECT * FROM users WHERE email = ?', [email])
+  if (rows.length === 0) {
+    const [row, field] = await db.query('SELECT * FROM users WHERE username = ?', [username])
+    if(row.length === 0){
+      const createUserQuery = await db.query(
+      'INSERT INTO users (username, email, password) VALUES (?, ?, ?)', [username, email, hashedPassword])
     const payload = {
       username: username,
     };
@@ -98,30 +102,198 @@ app.post("/register/", async (request, response) => {
   }
 });
 
+app.post('/generate-otp', async (req, res) => {
+  const { email } = req.body;
+  
+  try {
+    // Delete any existing OTP details for the email
+    await db.query(`DELETE FROM otpDetails WHERE email='${email}'`);
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000);
+    console.log(otp);
+
+    // Insert new OTP details into the database
+    await db.query(`INSERT INTO otpDetails (email, otp) VALUES (?, ?)`, [email, otp]);
+
+    // Send OTP to user's email
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: '1022prasanthkumar@gmail.com',
+        pass: 'uokhckuokumfsmqw'
+      }
+    });
+
+    const mailOptions = {
+      from: '1022prasanthkumar@gmail.com',
+      to: email,
+      subject: 'OTP for registration',
+      text: `Your OTP for registration is ${otp}. Please enter this OTP on the registration page to verify your email address.`
+    };
+
+    transporter.sendMail(mailOptions, (error, info) => {
+      if (error) {
+        console.error(error);
+        return res.status(500).json({ message: 'Failed to send OTP' });
+      }
+      console.log('OTP sent: ' + info.response);
+      res.json({ message: 'OTP generated and sent to your email address.' });
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+
+// app.post('/generate-otp', async (req, res) => {
+//   const { email } = req.body;
+//   const delDetails = await db.query(`delete from otpDetails where email='${email}'`)
+//   const otp = Math.floor(100000 + Math.random() * 900000); // generate 6-digit OTP
+//   console.log(otp)
+//   const InsertData = await db.query(`INSERT INTO otpDetails (email, otp) VALUES (
+//     '${email}',
+//     ${otp}
+//   )`)
+//   const response = await db.run(InsertData, (err) => {
+//     if (err) {
+//       return res.status(500).json({ message: 'Internal server error' });
+//     }
+//   })
+//     // send OTP to user's email
+//     const transporter = nodemailer.createTransport({
+//       service: 'gmail',
+//       auth: {
+//         user: '1022prasanthkumar@gmail.com',
+//         pass: 'lroizenmaulvyeko'
+//       }
+//     });
+//     const mailOptions = {
+//       from: '1022prasanthkumar@gmail.com',
+//       to: email,
+//       subject: 'OTP for registration',
+//       text: `Your OTP for registration is ${otp}. Please enter this OTP on the registration page
+//        to verify your email address.`
+//     };
+//     transporter.sendMail(mailOptions, (error, info) => {
+//       if (error) {
+//         // console.log(error)
+//         return res.status(500).json({ message: 'Internal server error' });
+//       }
+//       // console.log('OTP sent: ' + info.response);
+//       res.json({ message: 'OTP generated and sent to your email address.' });
+//     });
+// });
+
+app.post('/verify-otp', async (req, res) => {
+  const { email, otp } = req.body;
+
+  try {
+    // Retrieve OTP details from the database for the provided email
+    const [rows, fields] = await db.query(`SELECT * FROM otpDetails WHERE email = ?`, [email]);
+
+    if (rows.length === 0) {
+      res.json({ message: 'Email Not Found', status: 401 });
+    } else {
+      const dbRes = rows[0]; // Get the first row
+
+      // Verify the OTP
+      const verifyOtp = dbRes.otp === otp;
+
+      if (!verifyOtp) {
+        res.json({ message: 'Invalid OTP', status: 402 });
+      } else {
+        res.json({ message: 'Email Verified', status: 200 });
+      }
+    }
+  } catch (error) {
+    console.error(error);
+    res.json({ message: 'Internal Server Problem', status: 400 });
+  }
+});
+
+
+// app.post('/verify-otp', async(req, res) => {
+//   const {email, otp} = req.body
+//   const verifyData = await db.query(`Select * from otpDetails where email = '${email}'`)
+
+//   const dbRes = await db.get(verifyData, (err) => {
+//     res.json({ message: 'Internal Server Problem', status: 400  });
+//   })
+
+//   if(dbRes === undefined){
+//     res.json({ message: 'Email Not Found', status: 401 });
+//   }else{
+//     const verifyOtp = dbRes.otp === otp
+//     if(!verifyOtp){
+//       res.json({ message: 'Invalid OTP', status: 402  });
+//     }else{
+//       res.json({ message: 'Email Verified', status: 200  });
+
+//     }
+//   }
+// })
+
+
 app.post("/login/", async (req, res) => {
   const { username, password } = req.body;
-  const forLogin = `
-    SELECT * FROM user WHERE username= '${username}'
-    `;
-  const r1 = await db.get(forLogin);
-  if (r1 === undefined) {
-    res.send({status_code: 400,
-      error_msg: 'Invalid User'});
+  const [rows, fields] = await db.query("SELECT * FROM users WHERE username = ?", [username]);
+
+  if (rows.length === 0) {
+    res.send({
+      status_code: 400,
+      error_msg: 'Invalid User'
+    });
   } else {
-    const isCorrect = await bcrypt.compare(password, r1.password);
+    const user = rows[0]; // Get the first user (if there are multiple)
+    const isCorrect = await bcrypt.compare(password, user.password);
+
     if (isCorrect === true) {
       const payload = {
-        username: username,
+        username: user.username,
       };
       const jwtToken = jwt.sign(payload, "PRASHANTH_KEY");
-      res.send({ jwtToken });
+      res.send({ jwtToken, status_code: 200 });
     } else {
-      res.send({status_code: 400,
-      error_msg: 'Wrong Password',
-    username});
+      res.send({
+        status_code: 400,
+        error_msg: 'Wrong Password',
+        username
+      });
     }
   }
 });
+
+
+// app.post("/login/", async (req, res) => {
+//   const { username, password } = req.body;
+//   const forLogin = `
+//     SELECT * FROM user WHERE username= '${username}'
+//     `;
+//   const r1 = await db.get(forLogin);
+//   if (r1 === undefined) {
+//     res.send({status_code: 400,
+//       error_msg: 'Invalid User'});
+//   } else {
+//     const isCorrect = await bcrypt.compare(password, r1.password);
+//     if (isCorrect === true) {
+//       const payload = {
+//         username: username,
+//       };
+//       const jwtToken = jwt.sign(payload, "PRASHANTH_KEY");
+//       res.send({ jwtToken });
+//     } else {
+//       res.send({status_code: 400,
+//       error_msg: 'Wrong Password',
+//     username});
+//     }
+//   }
+// });
+
+
+app.use('/uploads', express.static(path.join(__dirname, './uploads')));
+
 
 app.get('/books', authProfile, async (req, res) => {
   try {
@@ -129,19 +301,19 @@ app.get('/books', authProfile, async (req, res) => {
     const {search_by = '', category} = req.query
   let getAllBooks;
   if(category === ''){
-    getAllBooks = `
+    [rows, fields] = await db.query(`
   SELECT * FROM sellBook 
   WHERE description LIKE '%${search_by}%' and userId NOT LIKE '${name}'
-  `
+  `)
   }else{
-    getAllBooks = `
+    [rows, fields] = await db.query(`
   SELECT * FROM sellBook 
   WHERE description LIKE '%${search_by}%' AND category LIKE '${category}' and userId NOT LIKE '${name}'
-  `
+  `)
   }
+  console.log(rows)
 
-  const dbRes = await db.all(getAllBooks, )
-  res.send({dbRes})
+  res.send({rows})
   } catch (error) {
     res.status(500)
   }
@@ -149,29 +321,65 @@ app.get('/books', authProfile, async (req, res) => {
 
 app.get('/books/:id', async (req, res) => {
   const bookId = req.params.id
-  const getBookDetails = `
+  const row = await db.query( `
   select * from sellBook where bookId = '${bookId}'
-  `
-  const dbRes = await db.get(getBookDetails)
+  `)
+  const dbRes = row[0][0]
   res.send({dbRes})
+})
+
+app.post('/biddetails', authProfile, async (req, res) => {
+  const name = req.username
+
+  const {bookId, bidAmount, mobile, title, description, file} = req.body
+
+  const [row, field] = await db.query(`select * from bidDetails where user='${name}' and bookId = '${bookId}'`)
+  if(row.length !== 0){
+    const updateData = await db.query(`
+    UPDATE bidDetails
+    SET bidAmount = '${bidAmount}',
+    mobile = '${mobile}'
+    WHERE bookId = '${bookId}' and user = '${name}'
+    `)
+  }else{
+    const [rows, fields] = await db.query( `
+  INSERT INTO bidDetails (user, bookId, bidAmount, mobile, title, description, file) 
+  VALUES (
+    '${name}',
+    '${bookId}',
+    '${bidAmount}',
+    '${mobile}',
+    '${title}',
+    '${description}',
+    '${file}'
+  )
+  `)
+  }
+  res.send({status_code: 200})
+})
+
+app.post('/book-bid-details', authProfile, async (req, res) => {
+  const name = req.username
+  const { bookId} = req.body 
+  const row = await db.query(`select * from  bidDetails where user = '${name}' and bookId = '${bookId}'`)
+  const response = row[0][0]
+  res.send({response})
 })
 
 app.get('/products/:id', async (req, res) => {
   const bookId = req.params.id
-  const getBookDetails = 'select * from sellBook where bookId = ?'
-
-  const dbRes = await db.get(getBookDetails, [bookId])
+  const [rows, fields] = await db.query(`select * from sellBook where bookId = '${bookId}'`)
+  const dbRes = rows[0]
   res.send({dbRes})
 })
 
 app.delete('/products/:id', async (req, res) => {
   const {id} = req.params
-  const delItem = `
+  const delItem = await db.query(`
   DELETE FROM sellBook WHERE bookId = '${id}'
-  `
+  `)
 
-  const dbRes = await db.run(delItem)
-  res.send({dbRes})
+  res.send({delItem})
 })
 
 app.get('/details', authProfile, async (req, res) => {
@@ -181,39 +389,54 @@ app.get('/details', authProfile, async (req, res) => {
 
 app.post('/mail-details', async (req,res) => {
   const {username} = req.body 
-  const getMail = `SELECT email FROM user WHERE username = '${username}'`
-  const dbRes = await db.get(getMail)
+  const rows = await db.query(`SELECT * FROM users WHERE username = '${username}'`)
+  const dbRes = rows[0]
   res.send({dbRes})
 })
 
 app.get('/products', authProfile, async (req, res) => {
   try {
     const name = req.username
-  const getOwnBooks = `
+  const [rows, fields] = await db.query(`
   select * from sellBook where userId='${name}'
-  `
-  const dbResponse = await db.all(getOwnBooks)
-  res.send({dbResponse})
+  `)
+  res.send({rows})
   } catch (error) {
     res.status(500)
   }
 })
 
-app.post('/sell/',authProfile, async (request, response) => {
+// Set up multer for file uploads
+const storage = multer.diskStorage({
+  destination: './uploads/',
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now();
+    const filename = `${uniqueSuffix}_${file.originalname}`;
+    cb(null, filename);
+  },
+});
+
+const upload = multer({ storage });
+
+
+app.post('/sell/', authProfile, upload.single('image'), async (request, response) => {
   try {
     const name = request.username
+    const {sellDetails} = request.body
+    const imagePath = request.file.path; // Path to the uploaded image
+    const image = imagePath.slice(7,imagePath.length)
+    const otherData = JSON.parse(request.body.sellDetails)
   const {category, title,
     author,
     description,
     publication_year,
     isbn,
     printed_price,
-    selling_price, language, file, bookId} = request.body;
-    const getBookDetails = `SELECT * FROM sellBook WHERE isbn = '${isbn}' and userId = '${name}'`
+    selling_price, language, bookId} = otherData;
+    const [rows, fields] = await db.query(`SELECT * FROM sellBook WHERE isbn = '${isbn}' and userId = '${name}'`)
 
-    const dbGetData = await db.get(getBookDetails)
-    if(dbGetData === undefined){
-      const InsertData = `
+    if(rows.length === 0){
+      await db.query(`
     INSERT INTO sellBook (bookId, category, title, author, description,
       publication_year, isbn, printed_price, selling_price, language, userId, file) 
     VALUES (
@@ -228,10 +451,9 @@ app.post('/sell/',authProfile, async (request, response) => {
       '${selling_price}',
       '${language}',
       '${name}',
-      '${file}'
+      '${image}'
     );
-    `;
-    const resData = await db.run(InsertData)
+    `)
     response.send({
       status: 200,
       bookId,
@@ -241,8 +463,7 @@ app.post('/sell/',authProfile, async (request, response) => {
       response.send({message: 'This Book is already published by you', status: 400})
     }
   } catch (error) {
-    console.log(error)
-    res.send({error})
+    response.send({error})
   }
 
 
@@ -258,7 +479,7 @@ app.post('/update-sell', async (request, response) => {
     isbn,
     printed_price,
     selling_price, language, file, bookId} = request.body;
-      const updateData = `
+      const updateData = await db.query(`
     UPDATE sellBook
     SET category = '${category}',
     title = '${title}',
@@ -271,8 +492,7 @@ app.post('/update-sell', async (request, response) => {
     language = '${language}',
     file = '${file}'
     WHERE bookId = '${bookId}'
-    `;
-    const dbRes = await db.run(updateData)
+    `)
     response.send({
       status: 200,
       bookId,
@@ -283,51 +503,20 @@ app.post('/update-sell', async (request, response) => {
   }
 })
 
-app.post('/biddetails', authProfile, async (req, res) => {
-  const name = req.username
-  const {bookId, bidAmount, mobile, file, title, description} = req.body
-
-  const setData = `
-  INSERT INTO biddetails (user, bookId, bidAmount, mobile, title, description, file) 
-  VALUES (
-    '${name}',
-    '${bookId}',
-    '${bidAmount}',
-    '${mobile}',
-    '${title}',
-    '${description}',
-    '${file}'
-  )
-  `
-
-  const dbResponse = await db.run(setData)
-  const bidId = dbResponse.lastID
-  res.send({dbResponse,bidId})
-})
-
 app.post('/biddata', async (req, res) => {
   const {bookId} = req.body 
-   const getBidDetails = `
-   SELECT * FROM biddetails where bookId = '${bookId}'
-   `
-   const dbRes = await db.all(getBidDetails)
-   res.send({dbRes})
-})
+   const [rows, fields] = await db.query(`
+   SELECT * FROM bidDetails where bookId = '${bookId}'
+   `)
 
-app.post('/book-bid-details', authProfile, async (req, res) => {
-  const name = req.username
-  const { bookId} = req.body 
-  const getUserBids = `select * from  bidDetails where user = '${name}' and bookId = '${bookId}'`
-  const response = await db.get(getUserBids)
-  res.send({response})
+   res.send({rows})
 })
 
 app.get('/cart-details', authProfile, async (req, res) => {
   try {
     const name = req.username
-  const getCartItems = `select * from bidDetails where user = '${name}'`
-  const response = await db.all(getCartItems)
-  res.send({response})
+  const [rows, fields] = await db.query(`select * from bidDetails where user = '${name}'`)
+  res.send({rows})
   } catch (error) {
     res.status(500)
   }
@@ -335,78 +524,16 @@ app.get('/cart-details', authProfile, async (req, res) => {
 
 app.delete('/cart-details/:id', async (req, res) => {
   const {id} = req.params
-  const delCartItem = `DELETE FROM bidDetails WHERE bookId = '${id}'`
-  const dbRes = await db.run(delCartItem)
-  res.send({dbRes})
+  const delCartItem = await db.query(`DELETE FROM bidDetails WHERE bookId = '${id}'`)
+  res.send({status_code: 200})
 
-})
-
-app.post('/generate-otp', async (req, res) => {
-  const { email } = req.body;
-  const delDetails = `delete from otpDetails where email='${email}'`
-  const resp = await db.run(delDetails)
-  const otp = Math.floor(100000 + Math.random() * 900000); // generate 6-digit OTP
-  console.log(otp)
-  const InsertData = `INSERT INTO otpDetails (email, otp) VALUES (
-    '${email}',
-    ${otp}
-  )`
-  const response = await db.run(InsertData, (err) => {
-    if (err) {
-      return res.status(500).json({ message: 'Internal server error' });
-    }
-  })
-    // send OTP to user's email
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: '1022prasanthkumar@gmail.com',
-        pass: 'lroizenmaulvyeko'
-      }
-    });
-    const mailOptions = {
-      from: '1022prasanthkumar@gmail.com',
-      to: email,
-      subject: 'OTP for registration',
-      text: `Your OTP for registration is ${otp}. Please enter this OTP on the registration page
-       to verify your email address.`
-    };
-    transporter.sendMail(mailOptions, (error, info) => {
-      if (error) {
-        // console.log(error)
-        return res.status(500).json({ message: 'Internal server error' });
-      }
-      // console.log('OTP sent: ' + info.response);
-      res.json({ message: 'OTP generated and sent to your email address.' });
-    });
-});
-
-app.post('/verify-otp', async(req, res) => {
-  const {email, otp} = req.body
-  const verifyData = `Select * from otpDetails where email = '${email}'`
-
-  const dbRes = await db.get(verifyData, (err) => {
-    res.json({ message: 'Internal Server Problem', status: 400  });
-  })
-
-  if(dbRes === undefined){
-    res.json({ message: 'Email Not Found', status: 401 });
-  }else{
-    const verifyOtp = dbRes.otp === otp
-    if(!verifyOtp){
-      res.json({ message: 'Invalid OTP', status: 402  });
-    }else{
-      res.json({ message: 'Email Verified', status: 200  });
-
-    }
-  }
 })
 
 // Integrate Razor pay Into our project
 
 const razorpay = new Razorpay({
-  key_id: "rzp_test_SUCPQkxTXgHfQb",
-  key_secret: "GEUQlYKXrkQbt3Qh6IIzg5SO",
+  key_id: "rzp_test_YpJuwcUUcAfw87",
+  key_secret: "Z84M1Ws2Z5MrAbOEHeAmXlAv",
 });
 
 app.post('/create-order', async (req, res) => {
@@ -427,27 +554,25 @@ app.post('/create-order', async (req, res) => {
 
 app.get('/payments/:id', async (req, res) => {
   const {id} = req.params
-  const getDetails = `SELECT * FROM sellBook WHERE bookId = '${id}'`
-  const dbRes = await db.get(getDetails)
-  res.send({dbRes})
+  const [rows, fields] = await db.query(`SELECT * FROM sellBook WHERE bookId = '${id}'`)
+  res.send({rows})
 })
 
 app.post('/set-password', async (req,res)=> {
   try {
     const {password, email} = req.body 
   const hashedPassword = await bcrypt.hash(password, 10);
-  const getEmail = `SELECT * FROM user WHERE email = '${email}'`
+  const [rows, fields] = await db.query(`SELECT * FROM user WHERE email = '${email}'`)
 
   const dbResponse = await db.get(getEmail)
-  if(dbResponse === undefined){
+  if(rows.length === 0){
     res.send({message: 'No user is registered with this Email', status: 400})
   }else{
-    const updateData = `
+    await db.query(`
     UPDATE user 
     SET password = '${hashedPassword}'
     WHERE email = '${email}'
-    `
-    const dbRes = await db.run(updateData)
+    `)
     res.send({message: 'Password Successfully Updated', status: 200})
   }
   } catch (error) {
@@ -460,18 +585,16 @@ app.post('/change-password',authProfile, async (req,res)=> {
    const passDetails = req.body
    const {currentPassword, confirmPassword} = passDetails
    const name = req.username
-   const getPassword = `SELECT password FROM user WHERE username = '${name}'`
-   const dbRes = await db.get(getPassword)
-   const isCorrect = await bcrypt.compare(dbRes.password, currentPassword)
+   const [rows, fields] = await db.query(`SELECT password FROM user WHERE username = '${name}'`)
+   const isCorrect = await bcrypt.compare(rows[0].password, currentPassword)
    if(isCorrect){
     const hashedPassword = await bcrypt.hash(confirmPassword, 10)
-    const updatePass = `
+    await db.query(`
     UPDATE user 
     SET password = '${hashedPassword}'
     WHERE username = '${name}'
-    `
+    `)
 
-    const dbResponse = await db.run(updatePass)
     res.send({
       error_msg: 'Password Updated Successfully',
       error_code: 200
@@ -483,7 +606,6 @@ app.post('/change-password',authProfile, async (req,res)=> {
     })
    }
   }catch (error) {
-    console.log(error)
     res.send({message: error, status: 500})
   }
 })
