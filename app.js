@@ -8,9 +8,7 @@ const path = require("path");
 const cors = require('cors')
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-// const { open } = require("sqlite");
 const multer = require("multer");
-const sqlite3 = require("sqlite3");
 const db = require("./database/index")
 const app = express();
 app.use(express.json());
