@@ -1,7 +1,5 @@
 const express = require("express");
-const util = require('util');
 const process = require('process');
-const fetch = require('node-fetch');
 const Razorpay = require("razorpay");
 const nodemailer = require('nodemailer');
 const path = require("path");
