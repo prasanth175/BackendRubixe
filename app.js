@@ -1,6 +1,6 @@
 const express = require("express");
 const process = require('process');
-const Razorpay = require("razorpay");
+const Razorpay = require('razorpay')
 const nodemailer = require('nodemailer');
 const path = require("path");
 const cors = require('cors')
@@ -518,20 +518,22 @@ app.post('/change-password',authProfile, async (req,res)=> {
   }
 })
 
-app.post('/proxy/razorpay', async (req, res) => {
-  try {
-    const { url, method, headers } = req.body;
-    const response = await fetch(url, {
-      method,
-      headers,
-    });
-
-    const data = await response.json();
-    res.status(200).json(data);
-  } catch (error) {
-    res.status(500).json({ message: 'Internal server error' });
-  }
-});
+// app.post('/proxy/razorpay', async (req, res) => {
+//   try {
+//     console.log('I am here...........')
+//     const { url, method, headers } = req.body;
+//     console.log(req.body)
+//     const response = await fetch(url, {
+//       method,
+//       headers,
+//     });
+// 2
+//     const data = await response.json();
+//     res.status(200).json(data);
+//   } catch (error) {
+//     res.status(500).json({ message: 'Internal server error' });
+//   }
+// });
 
 app.get('/userDetails', async (req, res) => {
   const [rows, fields] = await db.query(`pragma table_info(users)`)
