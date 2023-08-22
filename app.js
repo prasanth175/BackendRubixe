@@ -15,9 +15,6 @@ app.use(express.json());
 app.use(cors())
 module.exports = app;
 
-// const dbPath = path.join(__dirname, "userData.db");
-
-// let db = null;
 const PORT = process.env.PORT || 3006
 
 app.listen(PORT, () => {
@@ -145,45 +142,6 @@ app.post('/generate-otp', async (req, res) => {
 });
 
 
-// app.post('/generate-otp', async (req, res) => {
-//   const { email } = req.body;
-//   const delDetails = await db.query(`delete from otpDetails where email='${email}'`)
-//   const otp = Math.floor(100000 + Math.random() * 900000); // generate 6-digit OTP
-//   console.log(otp)
-//   const InsertData = await db.query(`INSERT INTO otpDetails (email, otp) VALUES (
-//     '${email}',
-//     ${otp}
-//   )`)
-//   const response = await db.run(InsertData, (err) => {
-//     if (err) {
-//       return res.status(500).json({ message: 'Internal server error' });
-//     }
-//   })
-//     // send OTP to user's email
-//     const transporter = nodemailer.createTransport({
-//       service: 'gmail',
-//       auth: {
-//         user: '1022prasanthkumar@gmail.com',
-//         pass: 'lroizenmaulvyeko'
-//       }
-//     });
-//     const mailOptions = {
-//       from: '1022prasanthkumar@gmail.com',
-//       to: email,
-//       subject: 'OTP for registration',
-//       text: `Your OTP for registration is ${otp}. Please enter this OTP on the registration page
-//        to verify your email address.`
-//     };
-//     transporter.sendMail(mailOptions, (error, info) => {
-//       if (error) {
-//         // console.log(error)
-//         return res.status(500).json({ message: 'Internal server error' });
-//       }
-//       // console.log('OTP sent: ' + info.response);
-//       res.json({ message: 'OTP generated and sent to your email address.' });
-//     });
-// });
-
 app.post('/verify-otp', async (req, res) => {
   const { email, otp } = req.body;
 
@@ -211,27 +169,6 @@ app.post('/verify-otp', async (req, res) => {
   }
 });
 
-
-// app.post('/verify-otp', async(req, res) => {
-//   const {email, otp} = req.body
-//   const verifyData = await db.query(`Select * from otpDetails where email = '${email}'`)
-
-//   const dbRes = await db.get(verifyData, (err) => {
-//     res.json({ message: 'Internal Server Problem', status: 400  });
-//   })
-
-//   if(dbRes === undefined){
-//     res.json({ message: 'Email Not Found', status: 401 });
-//   }else{
-//     const verifyOtp = dbRes.otp === otp
-//     if(!verifyOtp){
-//       res.json({ message: 'Invalid OTP', status: 402  });
-//     }else{
-//       res.json({ message: 'Email Verified', status: 200  });
-
-//     }
-//   }
-// })
 
 
 app.post("/login/", async (req, res) => {
@@ -263,31 +200,6 @@ app.post("/login/", async (req, res) => {
   }
 });
 
-
-// app.post("/login/", async (req, res) => {
-//   const { username, password } = req.body;
-//   const forLogin = `
-//     SELECT * FROM user WHERE username= '${username}'
-//     `;
-//   const r1 = await db.get(forLogin);
-//   if (r1 === undefined) {
-//     res.send({status_code: 400,
-//       error_msg: 'Invalid User'});
-//   } else {
-//     const isCorrect = await bcrypt.compare(password, r1.password);
-//     if (isCorrect === true) {
-//       const payload = {
-//         username: username,
-//       };
-//       const jwtToken = jwt.sign(payload, "PRASHANTH_KEY");
-//       res.send({ jwtToken });
-//     } else {
-//       res.send({status_code: 400,
-//       error_msg: 'Wrong Password',
-//     username});
-//     }
-//   }
-// });
 
 
 app.use('/uploads', express.static(path.join(__dirname, './uploads')));
@@ -624,7 +536,6 @@ app.post('/proxy/razorpay', async (req, res) => {
 });
 
 app.get('/userDetails', async (req, res) => {
-  const getDetails = `pragma table_info(user)`
-  const dbRes = await db.all(getDetails)
-  res.send({dbRes})
+  const [rows, fields] = await db.query(`pragma table_info(users)`)
+  res.send({rows})
 })
