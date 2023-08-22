@@ -1,10 +1,10 @@
 const mysql = require('mysql2')
 
 const db = mysql.createPool({
-    host: 'bhdmne1moepasceuvkxo-mysql.services.clever-cloud.com', 
-    user: 'uprq8amd5ztfxzqm', 
-    password: "GBGzFxq9f8IcwB7p5m78",
-    database: "bhdmne1moepasceuvkxo",
+    host: process.env.DB_HOST, 
+    user: process.env.DB_USERNAME, 
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_DBNAME,
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0
