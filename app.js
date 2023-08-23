@@ -9,6 +9,10 @@ const jwt = require("jsonwebtoken");
 const multer = require("multer");
 const db = require("./database/index")
 const app = express();
+
+require('dotenv').config()
+
+
 app.use(express.json());
 app.use(cors())
 module.exports = app;
