@@ -536,6 +536,6 @@ app.post('/change-password',authProfile, async (req,res)=> {
 // });
 
 app.get('/userDetails', async (req, res) => {
-  const [rows, fields] = await db.query(`pragma table_info(users)`)
+  const [rows, fields] = await db.query('DESCRIBE users')
   res.send({rows})
 })
